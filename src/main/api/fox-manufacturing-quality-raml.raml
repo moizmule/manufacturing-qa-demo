@@ -1,0 +1,27 @@
+#%RAML 1.0
+version: v1
+title: New API
+baseUri: https://mocksvc.mulesoft.com/mocks/1d7443c3-3a9d-4f71-b6a3-d17afaf71c1f # baseUri: 'https://mocksvc.mulesoft.com/mocks/8af8eeaa-02da-4661-8bc5-6550dce7ab1c'
+
+types:
+  requestFox: !include exchange_modules/dee27847-4de4-470c-a47a-b62b3d6e2ba4/fox-datatype/1.0.6/dataType.raml
+
+/fox:
+  post:
+    responses: 
+      200:
+        description: Send manufacturing data to Insights.
+        body:
+          application/json:
+            type: object
+            properties:
+              response:
+                required: true
+                example: Success
+                description: Property description
+                type: string
+    body:
+      application/json:
+        type: requestFox
+
+        example: !include exchange_modules/dee27847-4de4-470c-a47a-b62b3d6e2ba4/fox-datatype/1.0.6/foxRequestExample.json

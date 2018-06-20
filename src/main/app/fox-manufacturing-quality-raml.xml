@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+    <http:listener-config name="fox-manufacturing-quality-raml-httpListenerConfig" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <apikit:config name="fox-manufacturing-quality-raml-config" raml="fox-manufacturing-quality-raml.raml" consoleEnabled="false" doc:name="Router"/>
+    <http:request-config name="HTTP_Request_Configuration" host="tokenizationconnectorproxy-apple.cloudhub.io" port="80" doc:name="HTTP Request Configuration"/>
+    <http:request-config name="BuildingLookUp" host="projectlookup.cloudhub.io" port="80" doc:name="HTTP Request Configuration"/>
+    <flow name="fox-manufacturing-quality-raml-main">
+        <http:listener config-ref="fox-manufacturing-quality-raml-httpListenerConfig" path="/api/*" doc:name="HTTP"/>
+        <apikit:router config-ref="fox-manufacturing-quality-raml-config" doc:name="APIkit Router"/>
+        <exception-strategy ref="fox-manufacturing-quality-raml-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="fox-manufacturing-quality-raml-console">
+        <http:listener config-ref="fox-manufacturing-quality-raml-httpListenerConfig" path="/console/*" doc:name="HTTP"/>
+        <apikit:console config-ref="fox-manufacturing-quality-raml-config" doc:name="APIkit Console"/>
+    </flow>
+    <flow name="post:/fox:application/json:fox-manufacturing-quality-raml-config">
+        <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+        <dw:transform-message doc:name="Store Variables">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="tokenizedVariables"><![CDATA[%dw 1.0
+%output application/json
+---
+[]]]></dw:set-variable>
+            <dw:set-variable variableName="requestPayload"><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-variable>
+            <dw:set-variable variableName="originalPayload"><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-variable>
+            <dw:set-variable variableName="buildings"><![CDATA[%dw 1.0
+%output application/java
+---
+[]]]></dw:set-variable>
+        </dw:transform-message>
+        <flow-ref name="Tokenize_Product_Data" doc:name="Tokenize_Product_Data"/>
+        <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+        <flow-ref name="Orchestrate_Building_Validate_Date" doc:name="Orchestrate and Validate"/>
+        <dw:transform-message doc:name="Merge Tokenized Values" metadata:id="622fffa6-1703-4190-8749-f05afc2dc44d">
+            <dw:input-variable variableName="originalPayload"/>
+            <dw:input-variable doc:sample="/Users/ronniexie/Downloads/arraylist.json" mimeType="application/json" variableName="tokenizedVariables"/>
+            <dw:input-variable mimeType="application/json" variableName="requestPayload"/>
+            <dw:input-variable mimeType="application/json" variableName="buildings"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	manufacturer: flowVars.requestPayload.manufacturer,
+	records: flowVars.requestPayload.records map ((record , indexOfRecord) -> {
+		test_id: record.test_id,
+		product_id: flowVars.tokenizedVariables.Address[indexOfRecord].MailingAddress,
+		date: record.date,
+		test_result: record.test_result,
+		value: record.value,
+		product_name: flowVars.tokenizedVariables.Name[indexOfRecord].First,
+		deviations: record.deviations,
+		weight: record.weight,
+		buildings: flowVars.buildings.Building[indexOfRecord]
+	})
+}]]></dw:set-payload>
+            <dw:set-variable variableName="originalPayload"><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	manufacturer: flowVars.requestPayload.manufacturer,
+	records: flowVars.requestPayload.records map ((record , indexOfRecord) -> {
+		test_id: record.test_id,
+		product_id: flowVars.tokenizedVariables.Address[indexOfRecord].MailingAddress,
+		date: record.date,
+		test_result: record.test_result,
+		value: record.value,
+		product_name: flowVars.tokenizedVariables.Name[indexOfRecord].First,
+		deviations: record.deviations,
+		weight: record.weight
+	})
+}]]></dw:set-variable>
+        </dw:transform-message>
+    </flow>
+    <sub-flow name="Orchestrate_Building_Validate_Date">
+        <foreach collection="#[payload.records]" doc:name="For Each">
+            <http:request config-ref="BuildingLookUp" path="/api/building" method="GET" doc:name="Building Lookup">
+                <http:request-builder>
+                    <http:query-param paramName="ProductId" value="#[flowVars.counter]"/>
+                </http:request-builder>
+            </http:request>
+            <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+            <set-variable variableName="building" value="#[payload]" doc:name="Variable"/>
+            <logger level="INFO" doc:name="Logger"/>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+}]]></dw:set-payload>
+                <dw:set-variable variableName="buildings"><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.buildings + flowVars.building]]></dw:set-variable>
+            </dw:transform-message>
+            <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+            <logger level="INFO" doc:name="Logger"/>
+        </foreach>
+    </sub-flow>
+    <sub-flow name="Tokenize_Product_Data">
+        <foreach collection="#[payload.records]" doc:name="For Each">
+            <dw:transform-message doc:name="Transform Message" metadata:id="d71e02d7-027f-40a9-a319-d4962d48ea7a">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	Name: {
+		First: payload.product_name
+	},
+	
+	 "Address": {
+
+
+           "MailingAddress":  payload.product_id
+                }
+}]]></dw:set-payload>
+            </dw:transform-message>
+            <http:request config-ref="HTTP_Request_Configuration" path="/" method="POST" doc:name="HTTP"/>
+            <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+            <set-variable variableName="record" value="#[payload]" doc:name="Variable"/>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+flowVars.tokenizedVariables ]]></dw:set-payload>
+                <dw:set-variable variableName="tokenizedVariables"><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.tokenizedVariables + flowVars.record]]></dw:set-variable>
+            </dw:transform-message>
+        </foreach>
+    </sub-flow>
+    <apikit:mapping-exception-strategy name="fox-manufacturing-quality-raml-apiKitGlobalExceptionMapping">
+        <apikit:mapping statusCode="404">
+            <apikit:exception value="org.mule.module.apikit.exception.NotFoundException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Resource not found&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="405">
+            <apikit:exception value="org.mule.module.apikit.exception.MethodNotAllowedException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Method not allowed&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="415">
+            <apikit:exception value="org.mule.module.apikit.exception.UnsupportedMediaTypeException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Unsupported media type&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="406">
+            <apikit:exception value="org.mule.module.apikit.exception.NotAcceptableException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Not acceptable&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="400">
+            <apikit:exception value="org.mule.module.apikit.exception.BadRequestException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Bad request&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+    </apikit:mapping-exception-strategy>
+    <flow name="Copy_of_fox-manufacturing-quality-ramlFlow">
+        <http:listener config-ref="fox-manufacturing-quality-raml-httpListenerConfig" path="/test" doc:name="HTTP"/>
+        <logger level="INFO" doc:name="Logger"/>
+        <http:request config-ref="BuildingLookUp" path="/api/building" method="GET" doc:name="Copy_of_Building Lookup">
+            <http:request-builder>
+                <http:query-param paramName="ProductId" value="#[flowVars.originalPayload.records[flowVars.counter].product_id]"/>
+            </http:request-builder>
+        </http:request>
+        <logger level="INFO" doc:name="Logger"/>
+    </flow>
+</mule>

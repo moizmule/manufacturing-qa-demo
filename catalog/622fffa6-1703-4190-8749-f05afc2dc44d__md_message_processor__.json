@@ -1,0 +1,34 @@
+{
+    "inputMessageMetadata": {
+        "flowVariables": {
+            "tokenizedVariables": {
+                "connectorName": "#_custom_mule_metadata_type_#",
+                "typeId": "arrayTokenized"
+            },
+            "requestPayload": {
+                "connectorName": "#_custom_mule_metadata_type_#",
+                "typeId": "originalRequest"
+            },
+            "originalPayload": {},
+            "buildings": {
+                "model": {
+                    "connectorName": "#_custom_mule_metadata_type_#",
+                    "typeId": "building-example"
+                },
+                "isArray": false,
+                "dataType": "LIST",
+                "metaDataModelPropertiesManager": {
+                    "properties": []
+                }
+            }
+        }
+    },
+    "outputMessageMetadata": {
+        "messagePayload": {
+            "connectorName": "#_custom_mule_metadata_type_#",
+            "typeId": "originalRequest"
+        }
+    },
+    "id": "622fffa6-1703-4190-8749-f05afc2dc44d",
+    "version": "5.2.0.0"
+}

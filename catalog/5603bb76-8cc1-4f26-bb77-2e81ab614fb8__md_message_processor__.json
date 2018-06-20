@@ -1,0 +1,11 @@
+{
+    "inputMessageMetadata": {},
+    "outputMessageMetadata": {
+        "messagePayload": {
+            "connectorName": "#_custom_mule_metadata_type_#",
+            "typeId": "Input-Tokenization"
+        }
+    },
+    "id": "5603bb76-8cc1-4f26-bb77-2e81ab614fb8",
+    "version": "5.2.0.0"
+}
