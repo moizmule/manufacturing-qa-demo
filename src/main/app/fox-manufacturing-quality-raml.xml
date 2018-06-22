@@ -178,6 +178,6 @@ flowVars.tokenizedVariables + flowVars.record]]></dw:set-variable>
                 <http:query-param paramName="ProductId" value="#[flowVars.originalPayload.records[flowVars.counter].product_id]"/>
             </http:request-builder>
         </http:request>
-        <logger level="INFO" doc:name="Logger"/>
+        <logger level="INFO" doc:name="Logger test"/>
     </flow>
 </mule>
