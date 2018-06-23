@@ -1,14 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp" xmlns:smtp="http://www.mulesoft.org/schema/mule/smtp" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
 http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
-http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd">
     <http:listener-config name="fox-manufacturing-quality-raml-httpListenerConfig" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
     <apikit:config name="fox-manufacturing-quality-raml-config" raml="fox-manufacturing-quality-raml.raml" consoleEnabled="false" doc:name="Router"/>
     <http:request-config name="HTTP_Request_Configuration" host="tokenizationconnectorproxy-apple.cloudhub.io" port="80" doc:name="HTTP Request Configuration"/>
     <http:request-config name="BuildingLookUp" host="projectlookup.cloudhub.io" port="80" doc:name="HTTP Request Configuration"/>
+    <http:request-config name="Date-api-config" host="apple-date-api.cloudhub.io" port="80" doc:name="HTTP Request Configuration"/>
+    <smtp:connector name="SMTP" fromAddress="demos@mulesoft.com" validateConnections="true" doc:name="SMTP"/>
     <flow name="fox-manufacturing-quality-raml-main">
         <http:listener config-ref="fox-manufacturing-quality-raml-httpListenerConfig" path="/api/*" doc:name="HTTP"/>
         <apikit:router config-ref="fox-manufacturing-quality-raml-config" doc:name="APIkit Router"/>
@@ -41,17 +47,21 @@ payload]]></dw:set-variable>
 %output application/java
 ---
 []]]></dw:set-variable>
+            <dw:set-variable variableName="cleanedPayload"><![CDATA[%dw 1.0
+%output application/java
+---
+[]]]></dw:set-variable>
         </dw:transform-message>
         <flow-ref name="Tokenize_Product_Data" doc:name="Tokenize_Product_Data"/>
         <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
-        <flow-ref name="Orchestrate_Building_Validate_Date" doc:name="Orchestrate and Validate"/>
+        <flow-ref name="Orchestrate_Building" doc:name="Orchestrate Buildings"/>
         <dw:transform-message doc:name="Merge Tokenized Values" metadata:id="622fffa6-1703-4190-8749-f05afc2dc44d">
             <dw:input-variable variableName="originalPayload"/>
             <dw:input-variable doc:sample="/Users/ronniexie/Downloads/arraylist.json" mimeType="application/json" variableName="tokenizedVariables"/>
-            <dw:input-variable mimeType="application/json" variableName="requestPayload"/>
-            <dw:input-variable mimeType="application/json" variableName="buildings"/>
+            <dw:input-variable mimeType="application/json" variableName="requestPayload" doc:sample="exchange_modules/dee27847-4de4-470c-a47a-b62b3d6e2ba4/fox-datatype/1.0.6/foxRequestExample.json"/>
+            <dw:input-variable mimeType="application/json" variableName="buildings" doc:sample="sample_data/list_json_1.json"/>
             <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
+%output application/java
 ---
 {
 	manufacturer: flowVars.requestPayload.manufacturer,
@@ -83,18 +93,93 @@ payload]]></dw:set-variable>
 		weight: record.weight
 	})
 }]]></dw:set-variable>
+            <dw:set-variable variableName="cleanedPayload"><![CDATA[%dw 1.0
+%output application/java
+---
+[]]]></dw:set-variable>
+        </dw:transform-message>
+        <flow-ref name="dateCheck" doc:name="dateCheck"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="1522ede1-2201-4e72-b33f-e549aa6045f4">
+            <dw:input-variable doc:sample="noRootClean.json" mimeType="application/json" variableName="cleanedPayload"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	manufacturer: flowVars.originalPayload.manufacturer,
+	records: flowVars.cleanedPayload
+}]]></dw:set-payload>
         </dw:transform-message>
     </flow>
-    <sub-flow name="Orchestrate_Building_Validate_Date">
+    <sub-flow name="dateCheck">
+        <foreach collection="#[payload.records]" doc:name="For Each">
+            <dw:transform-message doc:name="Transform Message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+                <dw:set-variable variableName="recordProducts"><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-variable>
+            </dw:transform-message>
+            <logger message="*****RSX******** #[flowVars.counter]  *******" level="INFO" doc:name="Logger"/>
+            <http:request config-ref="Date-api-config" path="/api" method="GET" doc:name="HTTP">
+                <http:request-builder>
+                    <http:query-param paramName="date" value="#[payload.date]"/>
+                </http:request-builder>
+            </http:request>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+                <dw:set-variable variableName="resultBoolean"><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-variable>
+            </dw:transform-message>
+            <choice doc:name="Choice">
+                <when expression="#[payload.result == 'true']">
+                    <dw:transform-message doc:name="Transform Message">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{}]]></dw:set-payload>
+                        <dw:set-variable variableName="cleanedPayload"><![CDATA[%dw 1.0
+%output application/json
+---
+flowVars.cleanedPayload + flowVars.recordProducts]]></dw:set-variable>
+                    </dw:transform-message>
+                    <logger message="***** Choice True *****" level="INFO" doc:name="Logger"/>
+                </when>
+                <otherwise>
+                    <tracking:custom-event event-name="Failed Record" doc:name="Custom Business Event">
+                        <tracking:meta-data key="Date" value="#[flowVars.recordProducts.date]"/>
+                        <tracking:meta-data key="Test ID" value="#[flowVars.recordProducts.test_id]"/>
+                    </tracking:custom-event>
+                    <dw:transform-message doc:name="Transform Message">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{"failed": "the following jobs failed due to incorrect date. Dates must be be in yyyy-MM-dd foramt "}
+
++ flowVars.recordProducts]]></dw:set-payload>
+                    </dw:transform-message>
+                    <sftp:outbound-endpoint exchange-pattern="one-way" outputPattern="#[java.util.UUID.randomUUID()]" host="sftp.shared.demos.mulesoft.com" port="22" path="/home/mule/xieronnie" user="mule" password="Mule!123" responseTimeout="10000" doc:name="SFTP"/>
+                    <smtp:outbound-endpoint host="email-smtp.us-east-1.amazonaws.com" port="587" user="AKIAIPRATPMI5FJOPM2A" password="AiqD5eBQ+nrf/KQlUrUi55L8ctDC6CW747ODQpDCFfbq" connector-ref="SMTP" to="ronnie.xie@mulesoft.com" from="demos@mulesoft.com" subject="Message Failed" responseTimeout="10000" doc:name="SMTP"/>
+                </otherwise>
+            </choice>
+        </foreach>
+    </sub-flow>
+    <sub-flow name="Orchestrate_Building">
         <foreach collection="#[payload.records]" doc:name="For Each">
             <http:request config-ref="BuildingLookUp" path="/api/building" method="GET" doc:name="Building Lookup">
                 <http:request-builder>
-                    <http:query-param paramName="ProductId" value="#[flowVars.counter]"/>
+                    <http:query-param paramName="ProductId" value="#[payload.product_id]"/>
                 </http:request-builder>
             </http:request>
             <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
             <set-variable variableName="building" value="#[payload]" doc:name="Variable"/>
-            <logger level="INFO" doc:name="Logger"/>
             <dw:transform-message doc:name="Transform Message">
                 <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
@@ -106,8 +191,6 @@ payload]]></dw:set-variable>
 ---
 flowVars.buildings + flowVars.building]]></dw:set-variable>
             </dw:transform-message>
-            <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
-            <logger level="INFO" doc:name="Logger"/>
         </foreach>
     </sub-flow>
     <sub-flow name="Tokenize_Product_Data">
@@ -122,7 +205,6 @@ flowVars.buildings + flowVars.building]]></dw:set-variable>
 	},
 	
 	 "Address": {
-
 
            "MailingAddress":  payload.product_id
                 }
@@ -170,14 +252,4 @@ flowVars.tokenizedVariables + flowVars.record]]></dw:set-variable>
             <set-payload value="{ &quot;message&quot;: &quot;Bad request&quot; }" doc:name="Set Payload"/>
         </apikit:mapping>
     </apikit:mapping-exception-strategy>
-    <flow name="Copy_of_fox-manufacturing-quality-ramlFlow">
-        <http:listener config-ref="fox-manufacturing-quality-raml-httpListenerConfig" path="/test" doc:name="HTTP"/>
-        <logger level="INFO" doc:name="Logger"/>
-        <http:request config-ref="BuildingLookUp" path="/api/building" method="GET" doc:name="Copy_of_Building Lookup">
-            <http:request-builder>
-                <http:query-param paramName="ProductId" value="#[flowVars.originalPayload.records[flowVars.counter].product_id]"/>
-            </http:request-builder>
-        </http:request>
-        <logger level="INFO" doc:name="Logger test"/>
-    </flow>
 </mule>

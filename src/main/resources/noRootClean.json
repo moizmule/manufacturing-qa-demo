@@ -1,0 +1,35 @@
+[
+  {
+    "test_id": 7293,
+    "product_id": "FC3800",
+    "date": "2018-06-16",
+    "test_result": "pass",
+    "value": 69.23,
+    "product_name": "Ljpfp Dfstzw Ldmv",
+    "deviations": 0.5,
+    "weight": 0.8,
+    "buildings": "BuildingA"
+  },
+  {
+    "test_id": 4793,
+    "product_id": "LK6412",
+    "date": "2018-06-13",
+    "test_result": "fail",
+    "value": 42.8,
+    "product_name": "Izzff Bcahg Npmsxnplvj",
+    "deviations": 2.7,
+    "weight": 1.2,
+    "buildings": "BuildingB"
+  },
+  {
+    "test_id": 5713,
+    "product_id": "PK2218",
+    "date": "2018-06-14",
+    "test_result": "neutral",
+    "value": 55.8,
+    "product_name": "Bpjsc Hqnb-Cfdtx",
+    "deviations": 1.7,
+    "weight": 0.2,
+    "buildings": "BuildingC"
+  }
+]

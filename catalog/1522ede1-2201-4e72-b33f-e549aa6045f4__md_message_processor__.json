@@ -1,0 +1,18 @@
+{
+    "inputMessageMetadata": {
+        "flowVariables": {
+            "cleanedPayload": {
+                "connectorName": "#_custom_mule_metadata_type_#",
+                "typeId": "noRootClean"
+            }
+        }
+    },
+    "outputMessageMetadata": {
+        "messagePayload": {
+            "connectorName": "#_custom_mule_metadata_type_#",
+            "typeId": "originalRequest"
+        }
+    },
+    "id": "1522ede1-2201-4e72-b33f-e549aa6045f4",
+    "version": "5.2.0.0"
+}
