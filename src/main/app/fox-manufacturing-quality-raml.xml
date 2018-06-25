@@ -185,23 +185,45 @@ flowVars.failedRecords + flowVars.failedRecord]]></dw:set-variable>
                 </otherwise>
             </choice>
         </foreach>
-        <choice doc:name="If records fail...">
-            <when expression="#[flowVars.failedRecords.size() != 0]">
-                <dw:transform-message doc:name="Transform Message">
-                    <dw:set-payload><![CDATA[%dw 1.0
+        <async doc:name="Async">
+            <choice doc:name="If records fail...">
+                <when expression="#[flowVars.failedRecords.size() != 0]">
+                    <dw:transform-message doc:name="Transform Message">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+"The following attached records failed due to incorrect date format. It should be in yyyy-MM-dd format. Please make the necessary corrections and fix it."]]></dw:set-payload>
+                        <dw:set-variable variableName="attachmentFile"><![CDATA[%dw 1.0
+%output application/json
+---
+"The following records failed due to incorrect date format. It should be in yyyy-MM-dd format." +
+
+flowVars.failedRecords]]></dw:set-variable>
+                        <dw:set-variable variableName="loopThroughDates"><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	records: flowVars.failedRecords map ((record , indexOfRecord) -> {
+		date: record.date 
+	})}]]></dw:set-variable>
+                    </dw:transform-message>
+                    <set-attachment attachmentName="failedRecords" value="#[flowVars.attachmentFile]" contentType="application/json" doc:name="Attachment"/>
+                    <smtp:outbound-endpoint host="smtp.gmail.com" port="587" user="apple.quality.test@gmail.com" password="Mule1379" connector-ref="Gmail" to="ronnie.xie@mulesoft.com" from="apple.quality.test@gmail.com" subject="&quot;Failed Records due to invalid date &quot; " responseTimeout="10000" doc:name="SMTP"/>
+                    <dw:transform-message doc:name="Transform Message">
+                        <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {"failed": "the following jobs failed due to incorrect date. Dates must be be in yyyy-MM-dd foramt "} +
 
 flowVars.failedRecords]]></dw:set-payload>
-                </dw:transform-message>
-                <smtp:outbound-endpoint host="smtp.gmail.com" port="587" user="apple.quality.test@gmail.com" password="Mule1379" connector-ref="Gmail" to="ronnie.xie@mulesoft.com" from="apple.quality.test@gmail.com" subject="&quot;Failed Records &quot;" responseTimeout="10000" doc:name="SMTP"/>
-                <sftp:outbound-endpoint exchange-pattern="one-way" outputPattern="#[java.util.UUID.randomUUID()]" host="sftp.shared.demos.mulesoft.com" port="22" path="/home/mule/xieronnie" user="mule" password="Mule!123" responseTimeout="10000" doc:name="SFTP"/>
-            </when>
-            <otherwise>
-                <logger message="#[payload]" level="INFO" doc:name="Logger"/>
-            </otherwise>
-        </choice>
+                    </dw:transform-message>
+                    <sftp:outbound-endpoint exchange-pattern="one-way" outputPattern="#[java.util.UUID.randomUUID()]" host="sftp.shared.demos.mulesoft.com" port="22" path="home/mule/xieronnie/apple" user="mule" password="Mule!123" responseTimeout="10000" doc:name="SFTP"/>
+                </when>
+                <otherwise>
+                    <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+                </otherwise>
+            </choice>
+        </async>
     </sub-flow>
     <sub-flow name="Orchestrate_Building">
         <foreach collection="#[payload.records]" doc:name="For Each">
@@ -242,7 +264,7 @@ flowVars.buildings + flowVars.building]]></dw:set-variable>
                 }
 }]]></dw:set-payload>
             </dw:transform-message>
-            <http:request config-ref="HTTP_Request_Configuration" path="/" method="POST" doc:name="HTTP"/>
+            <http:request config-ref="HTTP_Request_Configuration" path="/" method="POST" doc:name="Tokenization Proxy"/>
             <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
             <set-variable variableName="record" value="#[payload]" doc:name="Variable"/>
             <dw:transform-message doc:name="Transform Message">
