@@ -9,12 +9,13 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
 http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
 http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd">
-    <http:listener-config name="fox-manufacturing-quality-raml-httpListenerConfig" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <http:listener-config name="fox-manufacturing-quality-raml-httpListenerConfig" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration" basePath="/email"/>
     <apikit:config name="fox-manufacturing-quality-raml-config" raml="fox-manufacturing-quality-raml.raml" consoleEnabled="false" doc:name="Router"/>
     <http:request-config name="HTTP_Request_Configuration" host="tokenizationconnectorproxy-apple.cloudhub.io" port="80" doc:name="HTTP Request Configuration"/>
     <http:request-config name="BuildingLookUp" host="projectlookup.cloudhub.io" port="80" doc:name="HTTP Request Configuration"/>
     <http:request-config name="Date-api-config" host="apple-date-api.cloudhub.io" port="80" doc:name="HTTP Request Configuration"/>
-    <smtp:connector name="SMTP" fromAddress="demos@mulesoft.com" validateConnections="true" doc:name="SMTP"/>
+    <smtp:connector name="SMTP" validateConnections="true" doc:name="SMTP"/>
+    <smtp:gmail-connector name="Gmail" validateConnections="true" doc:name="Gmail"/>
     <flow name="fox-manufacturing-quality-raml-main">
         <http:listener config-ref="fox-manufacturing-quality-raml-httpListenerConfig" path="/api/*" doc:name="HTTP"/>
         <apikit:router config-ref="fox-manufacturing-quality-raml-config" doc:name="APIkit Router"/>
@@ -48,6 +49,14 @@ payload]]></dw:set-variable>
 ---
 []]]></dw:set-variable>
             <dw:set-variable variableName="cleanedPayload"><![CDATA[%dw 1.0
+%output application/java
+---
+[]]]></dw:set-variable>
+            <dw:set-variable variableName="failedRecord"><![CDATA[%dw 1.0
+%output application/java
+---
+[]]]></dw:set-variable>
+            <dw:set-variable variableName="failedRecords"><![CDATA[%dw 1.0
 %output application/java
 ---
 []]]></dw:set-variable>
@@ -121,9 +130,13 @@ payload]]></dw:set-payload>
 %output application/java
 ---
 payload]]></dw:set-variable>
+                <dw:set-variable variableName="failedRecord"><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-variable>
             </dw:transform-message>
             <logger message="*****RSX******** #[flowVars.counter]  *******" level="INFO" doc:name="Logger"/>
-            <http:request config-ref="Date-api-config" path="/api" method="GET" doc:name="HTTP">
+            <http:request config-ref="Date-api-config" path="/api" method="GET" doc:name="Data Quality API">
                 <http:request-builder>
                     <http:query-param paramName="date" value="#[payload.date]"/>
                 </http:request-builder>
@@ -138,7 +151,7 @@ payload]]></dw:set-payload>
 ---
 payload]]></dw:set-variable>
             </dw:transform-message>
-            <choice doc:name="Choice">
+            <choice doc:name="If dates are all valid...">
                 <when expression="#[payload.result == 'true']">
                     <dw:transform-message doc:name="Transform Message">
                         <dw:set-payload><![CDATA[%dw 1.0
@@ -161,15 +174,34 @@ flowVars.cleanedPayload + flowVars.recordProducts]]></dw:set-variable>
                         <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{"failed": "the following jobs failed due to incorrect date. Dates must be be in yyyy-MM-dd foramt "}
+{"failed": "the following jobs failed due to incorrect date. Dates must be be in yyyy-MM-dd foramt "} +
 
-+ flowVars.recordProducts]]></dw:set-payload>
+ flowVars.failedRecords + flowVars.failedRecord]]></dw:set-payload>
+                        <dw:set-variable variableName="failedRecords"><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.failedRecords + flowVars.failedRecord]]></dw:set-variable>
                     </dw:transform-message>
-                    <sftp:outbound-endpoint exchange-pattern="one-way" outputPattern="#[java.util.UUID.randomUUID()]" host="sftp.shared.demos.mulesoft.com" port="22" path="/home/mule/xieronnie" user="mule" password="Mule!123" responseTimeout="10000" doc:name="SFTP"/>
-                    <smtp:outbound-endpoint host="email-smtp.us-east-1.amazonaws.com" port="587" user="AKIAIPRATPMI5FJOPM2A" password="AiqD5eBQ+nrf/KQlUrUi55L8ctDC6CW747ODQpDCFfbq" connector-ref="SMTP" to="ronnie.xie@mulesoft.com" from="demos@mulesoft.com" subject="Message Failed" responseTimeout="10000" doc:name="SMTP"/>
                 </otherwise>
             </choice>
         </foreach>
+        <choice doc:name="If records fail...">
+            <when expression="#[flowVars.failedRecords.size() != 0]">
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{"failed": "the following jobs failed due to incorrect date. Dates must be be in yyyy-MM-dd foramt "} +
+
+flowVars.failedRecords]]></dw:set-payload>
+                </dw:transform-message>
+                <smtp:outbound-endpoint host="smtp.gmail.com" port="587" user="apple.quality.test@gmail.com" password="Mule1379" connector-ref="Gmail" to="ronnie.xie@mulesoft.com" from="apple.quality.test@gmail.com" subject="&quot;Failed Records &quot;" responseTimeout="10000" doc:name="SMTP"/>
+                <sftp:outbound-endpoint exchange-pattern="one-way" outputPattern="#[java.util.UUID.randomUUID()]" host="sftp.shared.demos.mulesoft.com" port="22" path="/home/mule/xieronnie" user="mule" password="Mule!123" responseTimeout="10000" doc:name="SFTP"/>
+            </when>
+            <otherwise>
+                <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
     </sub-flow>
     <sub-flow name="Orchestrate_Building">
         <foreach collection="#[payload.records]" doc:name="For Each">
